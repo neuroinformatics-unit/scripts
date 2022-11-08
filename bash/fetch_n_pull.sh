@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # automatic fetch and pull of git repositories
-# usage: fetch_n_pull.sh <path to git repository>
+# usage: fetch_n_pull.sh
 
 # folders have to be organized reflecting github structure:
 # /path/to/github-organization/repository-name
