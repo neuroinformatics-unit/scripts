@@ -19,3 +19,11 @@ Then, you can run the script by running the following command in your terminal:
 $ ./script.sh
 ```
 
+In case you want to add the script to your PATH, you can run the following command in your terminal:
+```bash
+$ sudo cp script.sh /usr/local/bin/script
+```
+Then, you can run the script by running the following command in your terminal:
+```bash
+$ script
+```

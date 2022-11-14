@@ -6,11 +6,15 @@
 # folders have to be organized reflecting github structure:
 # /path/to/github-organization/repository-name
 
+# Example of folder: /Users/lauraporta/Source/github
+echo "Enter the path to the folder containing the repositories:"
+read folder
 
-githubDom=("brainglobe" "neuroinformatics-unit" "SainsburyWellcomeCenter")
+# retreive github users or organizations
+folders=$(ls $folder)
 
-for dom in ${githubDom[@]}; do
-    cd /home/lauraporta/Source/github/$dom
+for f in ${folders[@]}; do
+    cd $folder/$f
     for repo in $(ls); do
         cd $repo
         echo "Fetching $repo"
