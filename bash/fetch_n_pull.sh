@@ -17,8 +17,6 @@ for f in ${folders[@]}; do
     cd $folder/$f
     for repo in $(ls); do
         cd $repo
-        echo "Fetching $repo"
-        git fetch
         echo "Pulling $repo"
         git pull
         cd ..

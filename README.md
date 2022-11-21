@@ -3,12 +3,16 @@ Small but useful scripts to share among users.
 
 ## Bash scripts
 ### Instructions for macOS / Linux users
-To run a bash script, you need to have bash installed on your system. It should be already installed on Linux distributions.
+To run a bash script, you need to have bash installed on your system. It should be already installed on Linux and macOS.
 You can check if you have bash installed by running the following command in your terminal:
 ```bash
 $ bash --version
 ```
-On macOS, install bash by running the following command:
+In case it is not installed, on Linux install bash with the following command:
+```bash
+$ sudo apt-get install bash
+```
+and on macOS:
 ```bash
 $ brew install bash
 ```
@@ -28,3 +32,4 @@ Then, you can run the script by running the following command in your terminal:
 ```bash
 $ script
 ```
+It would run on macOS even if the shell is in `zsh`.
