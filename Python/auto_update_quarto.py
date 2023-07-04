@@ -1,5 +1,6 @@
 """
 This script will download and install the latest version of Quarto.
+Useful because Quarto is not provided by Ubuntu's package manager.
 Should work on Ubuntu >18.04.
 """
 
