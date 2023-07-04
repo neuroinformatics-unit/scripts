@@ -2,6 +2,10 @@
 This script will download and install the latest version of Quarto.
 Useful because Quarto is not provided by Ubuntu's package manager.
 Should work on Ubuntu >18.04 (on machines with Intel Chips).
+
+The Quarto binary will be placed in its default location,
+i.e. in `/usr/local/bin/quarto` (we assume that the initial
+installation was done likewise).
 """
 
 import os
