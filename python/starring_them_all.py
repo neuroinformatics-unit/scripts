@@ -1,9 +1,9 @@
+"""A rough script to star all our repos, because they are awesome (and there are many of them!)
+"""
 import requests
-
-# GitHub organization name
-org_names = ['brainglobe', 'neuroinformatics-unit']
-
 import subprocess
+
+org_names = ['brainglobe', 'neuroinformatics-unit'] # add/remove other orgs you'd like to star here
 
 
 for org_name in org_names:
