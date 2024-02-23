@@ -10,7 +10,7 @@
 #SBATCH -e slurm_array.%N.%A-%a.err
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=s.minano@ucl.ac.uk
-#SBATCH --array=0-0%5
+#SBATCH --array=0-1%5
 
 
 # NOTE on SBATCH command for array jobs
@@ -36,9 +36,10 @@ export KERAS_BACKEND=${list_backends[${SLURM_ARRAY_TASK_ID}]}
 # ---------------------------
 module load miniconda
 
+env_name=cellfinder-keras3-$KERAS_BACKEND
 conda activate base
-conda create -y -n cellfinder-keras3 python=3.10
-conda activate cellfinder-keras3
+conda create -y -n $env_name python=3.10
+conda activate $env_name
 
 which python
 which pip
