@@ -18,9 +18,9 @@
 # the number of array jobs should match the number of input files
 
 # ---------------------------
-# Github variables
+#  variables
 # ---------------------------
-KERAS_BACKEND=jax
+export KERAS_BACKEND=jax
 
 # ---------------------------
 # Define conda environment
