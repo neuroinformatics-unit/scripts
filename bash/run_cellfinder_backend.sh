@@ -17,10 +17,19 @@
 # with "SBATCH --array=0-n%m" ---> runs n separate jobs, but not more than m at a time.
 # the number of array jobs should match the number of input files
 
-# ---------------------------
-#  variables
-# ---------------------------
-export KERAS_BACKEND=jax
+# -------------------------------
+#  List of backends and models
+# ------------------------------
+list_backends=(
+    jax
+    tensorflow
+)
+
+# -------------------------------
+#  Set env variable for backend
+# ------------------------------
+# FILEPATH=${INPUT_DATA_LIST[${SLURM_ARRAY_TASK_ID}]}
+export KERAS_BACKEND=${list_backends[${SLURM_ARRAY_TASK_ID}]}
 
 # ---------------------------
 # Define conda environment
@@ -39,7 +48,9 @@ python -m pip install "cellfinder[$KERAS_BACKEND] @ git+https://github.com/brain
 
 
 # -----------------------------------
-# Input data: output from detection
+# Input data: 
+#  - output from detection
+#  - model for this backend 
 # -----------------------------------
 
 
