@@ -13,9 +13,13 @@ for org_name in org_names:
         'Accept': 'application/vnd.github.v3+json'
     }
 
-    response = requests.get(org_repos_url, headers=headers)
+    response = requests.get(org_repos_url, headers=headers, params={'per_page': 100})
+    print(f'Found {len(response.json())} repositories in {org_name}')
+
     if response.status_code == 200:
         repos = response.json()
         # Star each repository in the organization
         for repo in repos:
             subprocess.run(['gh', 'api' ,'--method', 'PUT', '-H', 'Accept: application/vnd.github+json', '-H', 'X-GitHub-Api-Version: 2022-11-28', f'/user/starred/{org_name}/{repo["name"]}'])
+
+print('All repositories starred! ⭐️')
