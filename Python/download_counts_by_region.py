@@ -50,7 +50,7 @@ PACKAGE_NAMES = [
 
 # Set the time period to query in days
 query_timeperiod_start = 0
-query_timeperiod_end = 1
+query_timeperiod_end = 365
 
 client = bigquery.Client()
 query_job = client.query(
