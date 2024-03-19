@@ -15,7 +15,7 @@ from google.cloud import bigquery
 import pandas as pd
 
 # Set the output directory
-OUTPUT_FILE = "./download_by_country.csv"
+OUTPUT_FILE = "~/NIU-dev/download_by_country.csv"
 
 # List of package names to query
 PACKAGE_NAMES = [
