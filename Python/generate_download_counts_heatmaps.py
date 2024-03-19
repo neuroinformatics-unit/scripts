@@ -61,14 +61,12 @@ def fetch_population(file_name: str, year: int = 2024):
 
 
 def create_plot(merged_df: gpd.GeoDataFrame, col: str, file_name: str, title: str, cmap: str, log_scale: bool, annotation: str = ""):
+    vmin = 0.0001
     vmax = merged_df[col].max()
+    norm = matplotlib.colors.LogNorm(vmin=vmin, vmax=vmax)
 
     if not log_scale:
-        vmin = 0.0001
         norm = plt.Normalize(vmin, vmax)
-    else:
-        vmin = 0.0001
-        norm = matplotlib.colors.LogNorm(vmin=vmin, vmax=vmax)
 
     # Create figure and axes for Matplotlib
     fig, ax = plt.subplots(1, figsize=(20, 8))
