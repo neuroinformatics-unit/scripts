@@ -1,5 +1,5 @@
 """
-Command-line script for querying the public pypi dataset for regional download stats.
+Script for querying the public pypi dataset for regional download stats.
 
 Prerequisites:
 1. Make sure that BigQuery is enabled for your project: https://cloud.google.com/bigquery/docs/quickstarts/quickstart-client-libraries
