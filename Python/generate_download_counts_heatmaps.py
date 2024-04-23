@@ -11,6 +11,7 @@ CMAP = 'viridis'
 TIMEPERIOD = 'year'
 BG_ONLY = True
 NORMALISE_POPULATION = False
+LOG_SCALE = False
 POPULATION_DATA = './WPP2022_Demographic_Indicators_Medium.csv' # Source: https://population.un.org/wpp/Download/Files/1_Indicators%20(Standard)/CSV_FILES/WPP2022_Demographic_Indicators_Medium.zip
 BG_PACKAGES = [
     'brainglobe-atlasapi',
@@ -94,7 +95,6 @@ def create_plot(merged_df: gpd.GeoDataFrame, col: str, file_name: str, title: st
 master_df = pd.read_csv(INPUT_FILE)
 geo_df = gpd.read_file(fetch_shapefile())
 col = 'num_downloads'
-log_scale = False
 annotation = ""
 
 if BG_ONLY:
@@ -105,7 +105,7 @@ if NORMALISE_POPULATION:
     master_df = pd.merge(master_df, pop_df, how='left', left_on='country_code', right_on='ISO2_code')
     col = 'normalised_downloads'
     master_df[col] = master_df['num_downloads'] / (master_df['TPopulation1Jan'] / 100)
-    log_scale = False
+    LOG_SCALE = False
     annotation = "Downloads per 100,000 residents"
 
 Path(OUTPUT_DIR).mkdir(exist_ok=True)
@@ -116,7 +116,7 @@ merged_df = pd.merge(left=geo_df, right=master_df.groupby('country_code').sum(co
 
 title = f"Total downloads for all packages in the last {TIMEPERIOD}"
 output_file = f'{OUTPUT_DIR}/all_by_country.png'
-create_plot(merged_df, col, output_file, title, CMAP, log_scale, annotation)
+create_plot(merged_df, col, output_file, title, CMAP, LOG_SCALE, annotation)
 
 # Create a figure for each package
 # List of package names to query
@@ -129,4 +129,4 @@ for name in package_names:
     title = f"{name} downloads in the last {TIMEPERIOD}"
     output_file = f'{OUTPUT_DIR}/{name}_by_country.png'
 
-    create_plot(merged_df, col, output_file, title, CMAP, log_scale, annotation)
+    create_plot(merged_df, col, output_file, title, CMAP, LOG_SCALE, annotation)
