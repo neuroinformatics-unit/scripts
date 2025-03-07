@@ -1,6 +1,6 @@
 """Format markdown meeting notes for Zulip post.
 
-A quick scrip to format meeting notes for Zulip.
+A quick script to format meeting notes for Zulip.
 The script reads a markdown file with the meeting notes and outputs
 another markdown file formatted for Zulip.
 
