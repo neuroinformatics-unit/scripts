@@ -1,0 +1,72 @@
+## 2025-03-07: Movement Community Call
+
+### Present
+- Niko Sirmpilatze
+- Sofía Miñano
+- Chang Huan Lo
+- Will Graham
+- Angela Albi
+- Richard Dushime
+- Sourabh Kapure
+- angkul
+- Adam Tyson
+- Stella Prins
+- Sepi Keshavarzi 
+
+### Agenda
+- Concluding the collaboration with UCL's Advanced Research Computing centre and Sepi Keshavarzi's lab:
+- Summary of the spatial navigation features introduced during Jan-Feb 2025
+- Upcoming features and bug-fixes for our napari plugin.
+
+### Meeting notes
+- New release announcement :tada: 
+    - napari, including a guide
+    - new plotting functions (centroids and occupancy heatmaps)
+    - new examples
+- ARC team contributions
+    - ROI analyses (defining ROIs, distances, angles)
+    - blog post coming
+- Sofia updates on Napari
+    - bboxes support 
+    - tracks layer
+    - handle NaNs in points, tracks layers
+    - select data to display (e.g. checkbox to select few individuals from all individuals there are available)
+- Angela updates
+    - movement used in TRex workshops
+    - can share google colab analysis notebooks using movement; videos and trajectories available online
+        - serve as examples on how she is loading different data "types" (bboxes, kpts, segmentation masks)
+    - she uses extra dimensions to handle conditions, events (related [issue](https://github.com/neuroinformatics-unit/movement/issues/418))
+        - e.g. of extra dimensions: trials, reps, individuals, day of data acquisition
+    - tracklets in trex 
+        - what are tracklets?: range of start:end frames with unique ID, i.e. segment of consecutive frames within which the ID likelihood is consistently high; 
+        - each individual could have multiple tracklets (there is a video/global tracklet ID, and an individual tracklet ID - if identity is preserved)
+        - we will discuss this further offline with her scripts and possibly set up a meeting
+    - Tristan (main trex dev) may join next community call
+    - YOLO various outputs (segmentation, keypoints, etc.)
+        - NS recommends to start with loading YOLO keypoints/centroids (since we have already support for this data types)
+        - we are discussing support for segmentation masks (in this [issue](https://github.com/neuroinformatics-unit/movement/issues/301))
+- Sepi updates
+    - pupillometry example
+        - options for filtering
+            - Angkul is working into generalising more filter options ([PR](https://github.com/neuroinformatics-unit/movement/pull/455))
+            - it is easy for us to support more filters (e.g. high/low pass - we could wrap scipy's [butterworth](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html))
+        - options for removing vibration of the setup
+            - using a reference point (like in the pupillometry example)
+            - Sepi says they did registration frame by frame too
+    - computing head/forward vector example
+    - pending example on computing allo/ego angles wrt ROIs (WIP)
+        - Will shows the current status
+        - Angela mentions it seems easy to support trex export of ROIs (not currently supported but they can make sure)
+        - Sepi asks about broadcasting across ROIs
+        - Angela mentions other angles that are relevant collective behaviour
+            - direction of one animal wrt to direction of another animal
+            - angle wrt average of the group
+            - we can compute this with current `movement` functionality
+    - upcoming blog post summarising ARC work
+    - we discuss completion of the wishlist
+        - pending path tortuosity and similar metrics
+        - pending definition of ROIs in napari
+        - pending loading timestamps and support for events (we discussed these in the previous meeting with Sepi)
+- CH is replacing our own logging module with loguru
+    - adding console handler 
+    - keeping file handler
