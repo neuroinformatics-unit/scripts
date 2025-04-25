@@ -15,7 +15,7 @@ from google.cloud import bigquery
 import pandas as pd
 
 # Set the output directory
-OUTPUT_FILE = "~/NIU-dev/download_by_country.csv"
+OUTPUT_FILE = "~/NIU-dev/scripts/downloads_full.csv"
 
 # List of package names to query
 PACKAGE_NAMES = [
@@ -46,6 +46,15 @@ PACKAGE_NAMES = [
     'cellfinder-visualize',
     'fancylog',
     'bg-space',
+    'qt-niu',
+    'derotation',
+    'brainglobe-stitch',
+    'brainglobe-registration',
+    'spikewrap',
+    'ethology',
+    'photon-mosaic',
+    'brainglobe-ccf-translator'
+    'brainglobe-heatmap'
 ]
 
 # Set the time period to query in days
