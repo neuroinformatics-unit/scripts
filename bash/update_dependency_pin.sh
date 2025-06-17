@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Script to update a specific dependency version in all repositories of a GitHub organization
+# Must be run with GitHub CLI (gh) installed and authenticated.
 # Usage: ./update_dependency_pin.sh [-d] <org> <dependency> <new_version> <reviewer>
 # Multiple reviewers can be specified by separating them with commas.
 # Use the -d flag for a dry run, which will preview changes.
