@@ -76,8 +76,8 @@ gh repo list "$ORG" --json nameWithOwner,isArchived \
     # The sed command updates the version of the dependency in pyproject.toml
     # It uses the regex from above to find the line with the dependency and replace the version number.
     # -r allows extended regex syntax, and -i edits the file in place.
-    # The regex is split into two parts: the dependency name followed by any
-    # optional dependencies in square brackets, and anything after up to the
+    # The regex is split into two parts: the dependency name with any
+    # optional dependencies in square brackets, followed by anything after up to the
     # double quotes. The second group is replaced with the new version.
     sed -i -r "s/(^\s*\"${DEPENDENCY}(\[.*])*)((\s|>|\!|<|=)*=*\s*([0-9]+.*[0-9]*.*[0-9]*)*\")/\1${NEW_VERSION}\"/g" pyproject.toml
 
