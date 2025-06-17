@@ -88,7 +88,7 @@ gh repo list "$ORG" --json nameWithOwner,isArchived \
       git add pyproject.toml
       git commit -m "Update ${DEPENDENCY} to version ${NEW_VERSION}"
       echo "Dependency updated and pushed to branch $BRANCH_NAME."
-#      gh pr create --base main --head "$BRANCH_NAME" --title "Pin ${DEPENDENCY} to ${NEW_VERSION}" --body "This PR pins ${DEPENDENCY} to version ${NEW_VERSION}." --reviewer "$REVIEWER"
+      gh pr create --base main --head "$BRANCH_NAME" --title "Pin ${DEPENDENCY} to ${NEW_VERSION}" --body "This PR pins ${DEPENDENCY} to version ${NEW_VERSION}." --reviewer "$REVIEWER"
     fi
   else
     echo "Dependency ${DEPENDENCY} not found in pyproject.toml. No changes made."
