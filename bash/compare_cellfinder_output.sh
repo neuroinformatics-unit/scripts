@@ -77,4 +77,6 @@ if [ "$DEBUG" = false ]; then
     cd $HOME
     echo "Removing the temporary directory..."
     rm -rf .cellfinder_comparison_$PR_NUMBER
+else
+    conda deactivate
 fi
