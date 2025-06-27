@@ -42,7 +42,6 @@ if [ -d "cellfinder" ]; then
     echo "cellfinder directory already exists"
     git -C cellfinder pull
     git -C cellfinder checkout main
-    cd ..
 else
     echo "Cloning cellfinder repository..."
     git clone https://github.com/brainglobe/cellfinder.git
