@@ -2,20 +2,20 @@
 
 # This script runs the cellfinder portion of brainmapper twice.
 # One run is from the main branch and the other is from a feature branch.
-# The -k flag can be used to keep the directory after the script finishes.
+# The -d flag can be used to keep the directory and conda environment after the script finishes.
 # Resolution must be provided as one arg with quotes separated by spaces, e.g. "5 2 2"
 # The comparison script is found at scripts/compare_cellfinder_output.py
-# Usage: compare_cellfinder_output.sh [-k] <pr_number> <signal_path> <background_path> <resolution> [<comparison_script_path>]
+# Usage: compare_cellfinder_output.sh [-d] <pr_number> <signal_path> <background_path> <resolution> [<comparison_script_path>]
 
 set -e
 
-KEEP_DIR=false
+DEBUG=false
 
 # Check if the script is run with the -d flag for dry run
-while getopts "k" flag; do
+while getopts "d" flag; do
   case "${flag}" in
-    k) KEEP_DIR=true ;;
-    *) echo "Usage: $0 [-k] <pr_number> <signal_path> <background_path> <resolution> <comparison_script_path>"
+    k) DEBUG=true ;;
+    *) echo "Usage: $0 [-d] <pr_number> <signal_path> <background_path> <resolution> <comparison_script_path>"
        exit 1 ;;
   esac
 done
@@ -27,7 +27,7 @@ RESOLUTION=${@:$OPTIND+3:1}
 COMPARISON_SCRIPT=${@:$OPTIND+4:1}
 
 if [[ -z "$PR_NUMBER" || -z "$SIGNAL_PATH" || -z "$BACKGROUND_PATH" || -z "$RESOLUTION" || -z "$COMPARISON_SCRIPT" ]]; then
-    echo "Usage: $0 [-k] <pr_number> <signal_path> <background_path> <resolution> <comparison_script_path>"
+    echo "Usage: $0 [-d] <pr_number> <signal_path> <background_path> <resolution> <comparison_script_path>"
     exit 1
 fi
 
@@ -70,11 +70,10 @@ brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_$PR_NUMBER -v $R
 echo "Comparing the results..."
 python $COMPARISON_SCRIPT $PR_NUMBER
 
-echo "Cleaning up the environment..."
-conda deactivate
-conda env remove -n cellfinder_comparison -y -q
-
-if [ "$KEEP_DIR" = false ]; then
+if [ "$DEBUG" = false ]; then
+    echo "Cleaning up the environment..."
+    conda deactivate
+    conda env remove -n cellfinder_comparison -y -q
     cd $HOME
     echo "Removing the temporary directory..."
     rm -rf .cellfinder_comparison_$PR_NUMBER
