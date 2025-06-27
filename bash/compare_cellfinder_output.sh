@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# This script compares the output of two cellfinder runs.
+# This script runs the cellfinder portion of brainmapper twice.
 # One run is from the main branch and the other is from a feature branch.
-# Creates a fresh environment for each run to ensure no interference.
-# Usage: compare_cellfinder_output.sh [-k] <pr_number> <signal_path> <background_path> <resolution> <validation_script_path>
-# Resolution must be provided as one arg with quotes separated by spaces, e.g. "5 2 2"
 # The -k flag can be used to keep the directory after the script finishes.
+# Resolution must be provided as one arg with quotes separated by spaces, e.g. "5 2 2"
+# The comparison script is found at scripts/compare_cellfinder_output.py
+# Usage: compare_cellfinder_output.sh [-k] <pr_number> <signal_path> <background_path> <resolution> [<comparison_script_path>]
 
 set -e
 
@@ -15,7 +15,7 @@ KEEP_DIR=false
 while getopts "k" flag; do
   case "${flag}" in
     k) KEEP_DIR=true ;;
-    *) echo "Usage: $0 [-k] <pr_number> <signal_path> <background_path> <resolution> <validation_script_path"
+    *) echo "Usage: $0 [-k] <pr_number> <signal_path> <background_path> <resolution> <comparison_script_path>"
        exit 1 ;;
   esac
 done
@@ -24,10 +24,10 @@ PR_NUMBER=${@:$OPTIND:1}
 SIGNAL_PATH=${@:$OPTIND+1:1}
 BACKGROUND_PATH=${@:$OPTIND+2:1}
 RESOLUTION=${@:$OPTIND+3:1}
-VALIDATION_SCRIPT_PATH=${@:$OPTIND+4:1}
+COMPARISON_SCRIPT=${@:$OPTIND+4:1}
 
-if [[ -z "PR_NUMBER" || -z "SIGNAL_PATH" || -z "$BACKGROUND_PATH" || -z "$RESOLUTION" || -z "$VALIDATION_SCRIPT_PATH" ]]; then
-    echo "Usage: $0 [-k] <pr_number> <signal_path> <background_path> <resolution> <validation_script_path>"
+if [[ -z "$PR_NUMBER" || -z "$SIGNAL_PATH" || -z "$BACKGROUND_PATH" || -z "$RESOLUTION" || -z "$COMPARISON_SCRIPT" ]]; then
+    echo "Usage: $0 [-k] <pr_number> <signal_path> <background_path> <resolution> <comparison_script_path>"
     exit 1
 fi
 
@@ -68,7 +68,7 @@ echo "Running cellfinder from the PR branch..."
 brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_$PR_NUMBER -v $RESOLUTION --orientation apl --no-register --no-analyse --no-figures
 
 echo "Comparing the results..."
-python $VALIDATION_SCRIPT_PATH $PR_NUMBER
+python $COMPARISON_SCRIPT $PR_NUMBER
 
 echo "Cleaning up the environment and temporary folder..."
 conda deactivate
