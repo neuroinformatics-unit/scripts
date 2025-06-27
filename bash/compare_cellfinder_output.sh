@@ -11,10 +11,10 @@ set -e
 
 DEBUG=false
 
-# Check if the script is run with the -d flag for dry run
+# Check if the script is run with the -k flag for dry run
 while getopts "d" flag; do
   case "${flag}" in
-    k) DEBUG=true ;;
+    d) DEBUG=true ;;
     *) echo "Usage: $0 [-d] <pr_number> <signal_path> <background_path> <resolution> <comparison_script_path>"
        exit 1 ;;
   esac
