@@ -59,6 +59,7 @@ echo "Running cellfinder from the main branch..."
 brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_main -v $RESOLUTION --orientation apl --no-register --no-analyse --no-figures
 
 git -C cellfinder fetch origin pull/$PR_NUMBER/head:$PR_NUMBER-branch
+git -C cellfinder checkout $PR_NUMBER-branch
 
 echo "Reinstalling cellfinder from the PR branch to account for dependency changes"
 pip install ./cellfinder -U
@@ -69,7 +70,7 @@ brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_$PR_NUMBER -v $R
 echo "Comparing the results..."
 python $COMPARISON_SCRIPT $PR_NUMBER
 
-echo "Cleaning up the environment and temporary folder..."
+echo "Cleaning up the environment..."
 conda deactivate
 conda env remove -n cellfinder_comparison -y -q
 
