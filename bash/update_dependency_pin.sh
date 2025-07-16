@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to update a specific dependency version in all repositories of a GitHub organization
-# Must be run with GitHub CLI (gh) installed and authenticated.
+# Must be run on Linux with GitHub CLI (gh) installed and authenticated.
 # Usage: ./update_dependency_pin.sh [-d] <org> <dependency> <new_version> <reviewer>
 # Multiple reviewers can be specified by separating them with commas.
 # Use the -d flag for a dry run, which will preview changes.
@@ -79,6 +79,7 @@ gh repo list "$ORG" --json nameWithOwner,isArchived \
     # The regex is split into two parts: the dependency name with any
     # optional dependencies in square brackets, followed by anything after up to the
     # double quotes. The second group is replaced with the new version.
+    # this sed command work only on GNU - sed is different on Macs.
     sed -i -r "s/(^\s*\"${DEPENDENCY}(\[.*])*)((\s|>|\!|<|=)*=*\s*([0-9]+.*[0-9]*.*[0-9]*)*\")/\1${NEW_VERSION}\"/g" pyproject.toml
 
     if $DRY_RUN; then
@@ -88,6 +89,7 @@ gh repo list "$ORG" --json nameWithOwner,isArchived \
       git add pyproject.toml
       git commit -m "Update ${DEPENDENCY} to version ${NEW_VERSION}"
       echo "Dependency updated and pushed to branch $BRANCH_NAME."
+      git push -u origin "$BRANCH_NAME"
       gh pr create --base main --head "$BRANCH_NAME" --title "Pin ${DEPENDENCY} to ${NEW_VERSION}" --body "This PR pins ${DEPENDENCY} to version ${NEW_VERSION}." --reviewer "$REVIEWER"
     fi
   else
