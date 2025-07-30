@@ -2,7 +2,7 @@
 
 # This script runs the cellfinder portion of brainmapper twice.
 # One run is from the main branch and the other is from a feature branch.
-# The -d flag can be used to keep the directory and conda environment after the script finishes.
+# The -d flag can be used to keep the directory and pixi environment after the script finishes.
 # Resolution must be provided as one arg with quotes separated by spaces, e.g. "5 2 2"
 # The comparison script is found at scripts/compare_cellfinder_output.py
 # Usage: compare_cellfinder_output.sh [-d] <pr_number> <signal_path> <background_path> <resolution> [<comparison_script_path>]
@@ -47,22 +47,24 @@ else
     git clone https://github.com/brainglobe/cellfinder.git
 fi
 
-source ~/.bash_profile
-conda activate
-conda create -n cellfinder_comparison python=3.12 -y
-conda activate cellfinder_comparison
-
-pip install brainglobe-workflows
-pip install ./cellfinder -U
+# source ~/.bashrc
+cd ./cellfinder
+pixi init
+pixi add python=3.12
+pixi add brainglobe-workflows --pypi
+pixi list | grep cell
+which brainmapper
 
 echo "Running cellfinder from the main branch..."
+
 brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_main -v $RESOLUTION --orientation apl --no-register --no-analyse --no-figures
 
 git -C cellfinder fetch origin pull/$PR_NUMBER/head:$PR_NUMBER-branch
 git -C cellfinder checkout $PR_NUMBER-branch
 
 echo "Reinstalling cellfinder from the PR branch to account for dependency changes"
-pip install ./cellfinder -U
+pixi list | grep cell
+which brainmapper
 
 echo "Running cellfinder from the PR branch..."
 brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_$PR_NUMBER -v $RESOLUTION --orientation apl --no-register --no-analyse --no-figures
@@ -72,11 +74,11 @@ python $COMPARISON_SCRIPT $PR_NUMBER
 
 if [ "$DEBUG" = false ]; then
     echo "Cleaning up the environment..."
-    conda deactivate
-    conda env remove -n cellfinder_comparison -y -q
+    pixi deactivate
+    pixi env remove -n cellfinder_comparison -y -q
     cd $HOME
     echo "Removing the temporary directory..."
     rm -rf .cellfinder_comparison_$PR_NUMBER
 else
-    conda deactivate
+    pixi deactivate
 fi
