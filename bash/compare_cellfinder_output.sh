@@ -5,13 +5,13 @@
 # The -d flag can be used to keep the directory and conda environment after the script finishes.
 # Resolution must be provided as one arg with quotes separated by spaces, e.g. "5 2 2"
 # The comparison script is found at scripts/compare_cellfinder_output.py
-# Usage: compare_cellfinder_output.sh [-d] <pr_number> <signal_path> <background_path> <resolution> [<comparison_script_path>]
+# Usage: compare_cellfinder_output.sh [-d] <pr_number> <signal_path> <background_path> <resolution> <comparison_script_path>
 
 set -e
 
 DEBUG=false
 
-# Check if the script is run with the -k flag for dry run
+# Check if the script is run with the -d flag for dry run
 while getopts "d" flag; do
   case "${flag}" in
     d) DEBUG=true ;;
