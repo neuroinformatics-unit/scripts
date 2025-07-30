@@ -47,32 +47,31 @@ else
     git clone https://github.com/brainglobe/cellfinder.git
 fi
 
-source ~/.bash_profile
-conda activate
+#source ~/.bashrc
 conda create -n cellfinder_comparison python=3.12 -y
-conda activate cellfinder_comparison
 
-pip install brainglobe-workflows
-pip install ./cellfinder -U
+CONDA="conda run -n cellfinder_comparison --live-stream"
+
+$CONDA pip install brainglobe-workflows
+$CONDA pip install ./cellfinder -U
 
 echo "Running cellfinder from the main branch..."
-brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_main -v $RESOLUTION --orientation apl --no-register --no-analyse --no-figures
+$CONDA brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_main -v $RESOLUTION --orientation apl --no-register --no-analyse --no-figures
 
 git -C cellfinder fetch origin pull/$PR_NUMBER/head:$PR_NUMBER-branch
 git -C cellfinder checkout $PR_NUMBER-branch
 
 echo "Reinstalling cellfinder from the PR branch to account for dependency changes"
-pip install ./cellfinder -U
+$CONDA pip install ./cellfinder -U
 
 echo "Running cellfinder from the PR branch..."
-brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_$PR_NUMBER -v $RESOLUTION --orientation apl --no-register --no-analyse --no-figures
+$CONDA brainmapper -s $SIGNAL_PATH -b $BACKGROUND_PATH -o ./cellfinder_$PR_NUMBER -v $RESOLUTION --orientation apl --no-register --no-analyse --no-figures
 
 echo "Comparing the results..."
-python $COMPARISON_SCRIPT $PR_NUMBER
+$CONDA python $COMPARISON_SCRIPT $PR_NUMBER
 
 if [ "$DEBUG" = false ]; then
     echo "Cleaning up the environment..."
-    conda deactivate
     conda env remove -n cellfinder_comparison -y -q
     cd $HOME
     echo "Removing the temporary directory..."
