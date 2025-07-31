@@ -47,7 +47,6 @@ else
     git clone https://github.com/brainglobe/cellfinder.git
 fi
 
-#source ~/.bashrc
 conda create -n cellfinder_comparison python=3.12 -y
 
 CONDA="conda run -n cellfinder_comparison --live-stream"
