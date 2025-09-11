@@ -10,6 +10,7 @@ set -euo pipefail
 #   ./count_participants.sh neuroinformatics-unit movement
 
 # N.B. this script can be quite slow, so have patience!
+
 if ! command -v gh >/dev/null 2>&1; then
   echo "Error: GitHub CLI 'gh' is required." >&2
   exit 1
