@@ -76,7 +76,7 @@ def fetch_issue_comments(owner, repo, headers):
             "issue_url": comment.get("issue_url"),
         }
 
-def fetch_pulls(owner, repo, headers):
+def fetch_pull_requests(owner, repo, headers):
     url = f"{API_BASE}/repos/{owner}/{repo}/pulls"
     for pr in get_paginated(url, headers, params={"state": "all"}):
         yield {
@@ -118,19 +118,19 @@ def main():
     repos = list_org_repos(args.org, headers)
     print(f"Found {len(repos)} repositories.", file=sys.stderr)
 
+    all_events = []
     for repo in repos:
-        all_events = []
         full_name = repo.get("full_name")
         owner, name = full_name.split("/", 1)
         print(f"Processing {full_name}...", file=sys.stderr)
         all_events.extend(fetch_issues(owner, name, headers))
         all_events.extend(fetch_issue_comments(owner, name, headers))
-        all_events.extend(fetch_pulls(owner, name, headers))
+        all_events.extend(fetch_pull_requests(owner, name, headers))
         all_events.extend(fetch_commits(owner, name, headers))
 
-        print(f"Writing {len(all_events)} events to {args.out}", file=sys.stderr)
-        with open(args.out, "a", encoding="utf-8") as f:
-            json.dump(all_events, f, indent=2)
+    print(f"Writing {len(all_events)} events to {args.out}", file=sys.stderr)
+    with open(args.out, "a", encoding="utf-8") as f:
+        json.dump(all_events, f, indent=2)
 
 if __name__ == "__main__":
     main()
