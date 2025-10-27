@@ -129,7 +129,7 @@ def main():
         all_events.extend(fetch_commits(owner, name, headers))
 
     print(f"Writing {len(all_events)} events to {args.out}", file=sys.stderr)
-    with open(args.out, "a", encoding="utf-8") as f:
+    with open(args.out, "w", encoding="utf-8") as f:
         json.dump(all_events, f, indent=2)
 
 if __name__ == "__main__":
