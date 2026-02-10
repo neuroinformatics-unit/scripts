@@ -1,3 +1,11 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "pyalex",
+#     "pandas",
+# ]
+# ///
+
 """Fetch citation counts for a list of tools from OpenAlex and save to CSV.
 
 The input is a dictionary mapping each tool to a a list of DOIs
