@@ -51,10 +51,6 @@ TOOLS_TO_PUBS = {
     "idtracker": [
         "https://doi.org/10.1038/s41592-018-0295-5",
     ],
-    "OpenPose": [
-        "https://doi.org/10.48550/arXiv.1812.08008",  # main paper
-        "https://doi.org/10.48550/arXiv.1704.07809",    # hand and face models
-    ],
     "FastTrack": [
         "https://doi.org/10.1371/journal.pcbi.1008697",   # main paper
     ],
@@ -72,6 +68,9 @@ TOOLS_TO_PUBS = {
     "OptiFlex": [
         "https://doi.org/10.3389/fncel.2021.621252",  # main paper
         "https://doi.org/10.1101/2020.04.04.025494",  # preprint
+    ],
+    "OCTRON": [
+        "https://doi.org/10.64898/2025.12.20.695663",  # preprint
     ],
 }
 
