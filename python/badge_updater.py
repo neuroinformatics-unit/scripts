@@ -144,11 +144,22 @@ print(f"  docs_url={docs_url}", flush=True)
 # 2e.License
 license_badge_url = "https://img.shields.io/badge/License-BSD%203--Clause-blue.svg"
 license_link      = "https://opensource.org/licenses/BSD-3-Clause"
-lic_match = re.search(
-    r"img\.shields\.io/badge/(License-[A-Za-z0-9%_\-\.]+\.svg)", raw
-)
-if lic_match:
-    license_badge_url = f"https://img.shields.io/badge/{lic_match.group(1)}"
+
+try:
+    _pypi_req = urllib.request.Request(
+        f"https://pypi.org/pypi/{pypi_pkg_norm}/json",
+        headers={"User-Agent": "Badge-Updater/1.0"}
+    )
+    with urllib.request.urlopen(_pypi_req, timeout=8) as _r:
+        _pypi_data = json.loads(_r.read())
+    classifiers = _pypi_data.get("info", {}).get("classifiers", [])
+    for c in classifiers:
+        if "MIT" in c:
+            license_badge_url = "https://img.shields.io/badge/License-MIT-blue.svg"
+            license_link      = "https://opensource.org/licenses/MIT"
+            break
+except Exception:
+    pass
 
 # 2f.Codecov token
 codecov_token = ""
