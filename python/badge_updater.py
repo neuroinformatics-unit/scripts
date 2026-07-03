@@ -152,12 +152,14 @@ try:
     )
     with urllib.request.urlopen(_pypi_req, timeout=8) as _r:
         _pypi_data = json.loads(_r.read())
-    classifiers = _pypi_data.get("info", {}).get("classifiers", [])
-    for c in classifiers:
-        if "MIT" in c:
-            license_badge_url = "https://img.shields.io/badge/License-MIT-blue.svg"
-            license_link      = "https://opensource.org/licenses/MIT"
-            break
+
+    info = _pypi_data.get("info", {})
+    classifiers = " ".join(info.get("classifiers", []))
+    license_field = (info.get("license") or "").splitlines()[0] if info.get("license") else ""
+
+    if "MIT License" in classifiers or "MIT" in license_field:
+        license_badge_url = "https://img.shields.io/badge/License-MIT-blue.svg"
+        license_link      = "https://opensource.org/licenses/MIT"
 except Exception:
     pass
 
