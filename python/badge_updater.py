@@ -213,9 +213,8 @@ lines.append(f"[![License]({license_badge_url})]({license_link})")
 
 # Section 4 - CI/coverage
 lines.append(
-    f"[![Tests](https://img.shields.io/github/actions/workflow/status/"
-    f"{ORG}/{REPO}/{workflow_file}?branch=main)]"
-    f"({gh_base}/actions)"
+    f"[![Tests](https://github.com/{ORG}/{REPO}/actions/workflows/{workflow_file}/badge.svg)]"
+    f"(https://github.com/{ORG}/{REPO}/actions/workflows/{workflow_file})"
 )
 lines.append(
     f"[![Codecov](https://codecov.io/gh/{ORG}/{REPO}/graph/badge.svg{codecov_token})]"
