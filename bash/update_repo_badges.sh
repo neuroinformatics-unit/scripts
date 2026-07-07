@@ -11,9 +11,24 @@ DRY_RUN=false
 ONLY_REPO=""
 
 REPOS=(
-    "brainrender"
     "brainglobe-atlasapi"
-    "cellfinder"
+"brainglobe-ccf-translator"
+"brainglobe-data-api-connectivity"
+"brainglobe-data-api-volume"
+"brainglobe-heatmap"
+"brainglobe-napari-io"
+"brainglobe-registration"
+"brainglobe-segmentation"
+"brainglobe-space"
+"brainglobe-stitch"
+"brainglobe-template-builder"
+"brainglobe-utils"
+"brainglobe-workflows"
+"brainreg"
+"brainrender"
+"brainrender-napari"
+"cellfinder"
+"morphapi"
 )
 
 # parsing args
