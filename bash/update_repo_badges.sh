@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ORG="brainglobe"
-BRANCH_NAME="update/standardise-readme-badges"
+BRANCH_NAME="update/standardize-readme-badges"
 PR_TITLE="docs: standardise README badge block"
 PR_BODY="Standardises the README badge section across BrainGlobe repos"
 WORK_DIR="$(pwd)/.brainglobe_badge_work"
@@ -11,9 +11,24 @@ DRY_RUN=false
 ONLY_REPO=""
 
 REPOS=(
-    "brainrender"
     "brainglobe-atlasapi"
-    "cellfinder"
+"brainglobe-ccf-translator"
+"brainglobe-data-api-connectivity"
+"brainglobe-data-api-volume"
+"brainglobe-heatmap"
+"brainglobe-napari-io"
+"brainglobe-registration"
+"brainglobe-segmentation"
+"brainglobe-space"
+"brainglobe-stitch"
+"brainglobe-template-builder"
+"brainglobe-utils"
+"brainglobe-workflows"
+"brainreg"
+"brainrender"
+"brainrender-napari"
+"cellfinder"
+"morphapi"
 )
 
 # parsing args
