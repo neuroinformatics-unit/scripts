@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ORG="brainglobe"
-BRANCH_NAME="update/standardise-readme-badges"
+BRANCH_NAME="update/standardize-readme-badges"
 PR_TITLE="docs: standardise README badge block"
 PR_BODY="Standardises the README badge section across BrainGlobe repos"
 WORK_DIR="$(pwd)/.brainglobe_badge_work"
