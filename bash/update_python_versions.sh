@@ -8,6 +8,7 @@
 #
 # Usage: ./update_python_versions.sh [--min 3.12] [--max 3.14] [--dry-run]
 #                                    [--repo <name>] [--org <org>] [--reviewer <user1,user2>]
+#                                    [--issue <issue URL or org/repo#N>]
 #
 # The supported versions become every minor version from --min to --max inclusive.
 # Files updated in each repository:
@@ -21,13 +22,16 @@
 #       plus `include:` entries pinned to the old newest (or a dropped) version.
 #       Python versions pinned outside a test matrix are intentionally left alone.
 # Any remaining references to dropped versions are printed and listed in the PR body
-# for the reviewer to check by hand.
+# for the reviewer to check by hand, as are workflow lines that pin a single supported
+# Python version outside a test matrix (e.g. a docs or lint job on 3.12).
+# If --issue is given, "Tracked in <issue>" is appended to the bottom of each PR body.
 set -euo pipefail
 
 ORG="brainglobe"
 MIN_VERSION="3.12"
 MAX_VERSION="3.14"
 REVIEWER=""
+ISSUE=""
 DRY_RUN=false
 ONLY_REPO=""
 
@@ -55,7 +59,7 @@ REPOS=(
 )
 
 usage() {
-    echo "Usage: $0 [--min 3.12] [--max 3.14] [--dry-run] [--repo <name>] [--org <org>] [--reviewer <users>]"
+    echo "Usage: $0 [--min 3.12] [--max 3.14] [--dry-run] [--repo <name>] [--org <org>] [--reviewer <users>] [--issue <issue>]"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -66,6 +70,7 @@ while [[ $# -gt 0 ]]; do
         --min)      MIN_VERSION="$2";   shift 2 ;;
         --max)      MAX_VERSION="$2";   shift 2 ;;
         --reviewer) REVIEWER="$2";      shift 2 ;;
+        --issue)    ISSUE="$2";         shift 2 ;;
         -h|--help)  usage; exit 0 ;;
         *) echo "Unknown argument: $1"; usage; exit 1 ;;
     esac
@@ -105,10 +110,11 @@ PYTHON_HELPER="$SCRIPT_DIR/../python/update_python_versions.py"
 
 mkdir -p "$WORK_DIR"
 
-# Edit pyproject.toml and workflow files in place.
+# Edit pyproject.toml and workflow files in place; single-version workflow pins
+# that were left alone are written to the file given as $2.
 # Exit codes: 0 = files changed, 2 = nothing to change, other = error.
 apply_updates() {
-    python3 "$PYTHON_HELPER" "$1" "$MIN_MINOR" "$MAX_MINOR"
+    python3 "$PYTHON_HELPER" "$1" "$MIN_MINOR" "$MAX_MINOR" "$2"
 }
 
 # Print lines still referring to dropped Python versions (for manual review).
@@ -152,8 +158,9 @@ process_repo() {
 
     #3. Create branch and apply the updates
     git -C "$repo_dir" checkout -b "$BRANCH" --quiet
-    local exit_code=0
-    apply_updates "$repo_dir" || exit_code=$?
+    local exit_code=0 pins_file="$WORK_DIR/$repo.pins"
+    rm -f "$pins_file"
+    apply_updates "$repo_dir" "$pins_file" || exit_code=$?
     case $exit_code in
         0) ;;
         2) log "Nothing to update in $repo - skipping PR."
@@ -173,6 +180,12 @@ process_repo() {
     if [[ -n "$leftovers" ]]; then
         warn "References to dropped Python versions remain in $repo (not changed):"
         echo "$leftovers" >&2
+    fi
+    local pins=""
+    [[ -f "$pins_file" ]] && pins="$(cat "$pins_file")"
+    if [[ -n "$pins" ]]; then
+        warn "Workflows in $repo pin a single Python version outside a test matrix (not changed):"
+        echo "$pins" >&2
     fi
 
     if [[ "$DRY_RUN" == true ]]; then
@@ -198,8 +211,6 @@ process_repo() {
 - Update the Python version classifiers and tool target versions
 - Update the CI test matrix to Python ${MIN_VERSION}-${MAX_VERSION} (other OSes on \`${MAX_VERSION}\`)
 
-Tracked in https://github.com/brainglobe/BrainGlobe/issues/98
-
 This PR was opened by a script. Please check that CI passes on the new Python versions before merging."
     if [[ -n "$leftovers" ]]; then
         body+="
@@ -208,6 +219,19 @@ This PR was opened by a script. Please check that CI passes on the new Python ve
 \`\`\`
 ${leftovers}
 \`\`\`"
+    fi
+    if [[ -n "$pins" ]]; then
+        body+="
+
+**Please review:** these workflow lines pin a single Python version outside the test matrix and were not changed automatically:
+\`\`\`
+${pins}
+\`\`\`"
+    fi
+    if [[ -n "$ISSUE" ]]; then
+        body+="
+
+Tracked in ${ISSUE}"
     fi
 
     local pr_args=(--repo "$ORG/$repo" --head "$BRANCH" --base "$base" --title "$PR_TITLE" --body "$body")
