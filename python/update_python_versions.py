@@ -2,20 +2,22 @@
 """Update supported Python versions in a repo's pyproject.toml and CI workflows.
 
 Called by bash/update_python_versions.sh.
-Usage: update_python_versions.py <repo_dir> <min_minor> <max_minor> [pins_file]
-If pins_file is given, workflow lines pinning a single supported Python version
-outside a multi-version test matrix (left unchanged) are written to it for review.
+Usage: update_python_versions.py <repo_dir> <min_minor> <max_minor> [review_file]
+If review_file is given, remaining Python version mentions in the repo's tracked files
+(after the updates, excluding lines this script manages) are written to it for review.
 Exit codes: 0 = files changed, 2 = nothing to change, other = error.
 """
 
+import fnmatch
 import pathlib
 import re
+import subprocess
 import sys
 
 root = pathlib.Path(sys.argv[1])
 lo, hi = int(sys.argv[2]), int(sys.argv[3])
 minors = list(range(lo, hi + 1))
-pins_file = pathlib.Path(sys.argv[4]) if len(sys.argv) > 4 else None
+review_file = pathlib.Path(sys.argv[4]) if len(sys.argv) > 4 else None
 
 
 def quote_of(text, default='"'):
@@ -138,21 +140,63 @@ def update_workflow(text, in_matrix=None):
     return "\n".join(out)
 
 
-# python-version: "3.12" / python-version: ["3.12"] (a single version)
-PIN_RE = re.compile(r"^\s*(?:-\s*)?python-version:\s*\[?\s*([\"']?)3\.(\d+)\1\s*\]?\s*(?:#.*)?$")
+# "3.11" or "py311", not part of a longer version like "1.3.11" or "3.110".
+# Only 3.8+ is considered, so that unrelated numbers like "3.5" are not flagged.
+VERSION_RE = re.compile(r"(?:^|[^0-9.])(?:3\.|py3)(\d+)(?![0-9])")
+# tox-style "py{311,312}"
+TOX_ENVS_RE = re.compile(r"py\{([\d,\s]+)\}")
+PYTHON_RE = re.compile(r"python|py3\d", re.I)
+
+# Lines in pyproject.toml that update_pyproject() keeps in sync.
+MANAGED_PYPROJECT_RE = re.compile(
+    r"requires-python|Programming Language :: Python :: 3\.|target-version"
+    r"|envlist\s*=\s*py\{|^\s*3\.\d+\s*:\s*py3\d+"
+)
+
+# Files where version mentions are noise or history rather than config.
+REVIEW_EXCLUDE = ["*.lock", "*.ipynb", "*.svg", "CHANGELOG*", "*/CHANGELOG*", "*.min.js"]
+MAX_REVIEW_SIZE = 1_000_000
 
 
-def single_pins(path, text, in_matrix):
-    """Lines pinning one supported version outside a multi-version matrix.
+def review_mentions(managed):
+    """Tracked-file lines still mentioning a Python version, as "path:line:text".
 
-    Dropped versions are skipped: the bash script already reports those.
+    Dropped versions are always reported. Other versions are reported only when the
+    line (or file name) mentions Python, to skip unrelated numbers. Lines this script
+    manages are skipped: `managed` maps a relative path to managed line numbers.
     """
-    rel = path.relative_to(root)
-    return [
-        f"{rel}:{n}:{line}"
-        for n, (line, matrix) in enumerate(zip(text.split("\n"), in_matrix), 1)
-        if not matrix and (m := PIN_RE.match(line)) and int(m.group(2)) >= lo
-    ]
+    files = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z"],
+        capture_output=True, text=True, check=True,
+    ).stdout.split("\0")
+    found = []
+    for rel in filter(None, files):
+        path = root / rel
+        if any(fnmatch.fnmatch(rel, pat) for pat in REVIEW_EXCLUDE):
+            continue
+        if not path.is_file() or path.stat().st_size > MAX_REVIEW_SIZE:
+            continue
+        try:
+            text = path.read_text()
+        except (UnicodeDecodeError, OSError):
+            continue  # binary or unreadable
+        python_file = "python" in rel.lower()
+        skip = managed.get(rel, set())
+        for n, line in enumerate(text.split("\n"), 1):
+            if n in skip:
+                continue
+            if rel == "pyproject.toml" and MANAGED_PYPROJECT_RE.search(line):
+                continue
+            versions = VERSION_RE.findall(line) + [
+                env[1:] for m in TOX_ENVS_RE.findall(line)
+                for env in re.findall(r"3\d+", m)
+            ]
+            versions = [int(v) for v in versions if int(v) >= 8]
+            if not versions:
+                continue
+            if any(v < lo for v in versions) or python_file or PYTHON_RE.search(line):
+                found.append(f"{rel}:{n}:{line.strip()}")
+    return found
 
 
 def validate_toml(path, text):
@@ -180,13 +224,14 @@ if workflows.is_dir():
     for wf in sorted([*workflows.glob("*.yml"), *workflows.glob("*.yaml")]):
         targets.append((wf, update_workflow, validate_yaml))
 
-changed, pins = [], []
+changed, managed = [], {}
 for path, update, validate in targets:
     old = path.read_text()
     if update is update_workflow:
         in_matrix = []
         new = update_workflow(old, in_matrix)
-        pins += single_pins(path, new, in_matrix)
+        rel = str(path.relative_to(root))
+        managed[rel] = {n for n, m in enumerate(in_matrix, 1) if m}
     else:
         new = update(old)
     if new == old:
@@ -199,8 +244,8 @@ for path, update, validate in targets:
     path.write_text(new)
     changed.append(str(path.relative_to(root)))
 
-if pins_file:
-    pins_file.write_text("".join(f"{p}\n" for p in pins))
+if review_file:
+    review_file.write_text("".join(f"{m}\n" for m in review_mentions(managed)))
 
 for c in changed:
     print(f"[INFO]  Updated {c}")

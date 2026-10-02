@@ -21,9 +21,10 @@
 #     - only inside a `matrix:` block that lists >= 2 python versions: the version list,
 #       plus `include:` entries pinned to the old newest (or a dropped) version.
 #       Python versions pinned outside a test matrix are intentionally left alone.
-# Any remaining references to dropped versions are printed and listed in the PR body
-# for the reviewer to check by hand, as are workflow lines that pin a single supported
-# Python version outside a test matrix (e.g. a docs or lint job on 3.12).
+# Any remaining Python version mentions in the repo's tracked files (e.g. a docs job
+# pinned to 3.12, tox.ini, README install notes) are printed and listed in the PR body
+# for the reviewer to check by hand. Dropped versions are always listed; other versions
+# only on lines that mention Python. Lock files, notebooks and changelogs are skipped.
 # If --issue is given, "Tracked in <issue>" is appended to the bottom of each PR body.
 set -euo pipefail
 
@@ -97,34 +98,17 @@ BRANCH="update-python-versions-${MIN_VERSION}-${MAX_VERSION}"
 PR_TITLE="Update supported Python versions to ${MIN_VERSION}-${MAX_VERSION}"
 COMMIT_MSG="Update supported Python versions to ${MIN_VERSION}-${MAX_VERSION} (SPEC 0)"
 
-# Regexes matching a dropped version, e.g. "3.11" or "py311" (for MIN=3.12, covers 3.8-3.11).
-# Surrounding-character checks avoid matching things like "1.3.11" or "3.110".
-DROPPED_MINORS=""
-for (( m = 8; m < MIN_MINOR; m++ )); do
-    DROPPED_MINORS+="${DROPPED_MINORS:+|}$m"
-done
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_HELPER="$SCRIPT_DIR/../python/update_python_versions.py"
 [[ -f "$PYTHON_HELPER" ]] || die "Python helper not found: $PYTHON_HELPER"
 
 mkdir -p "$WORK_DIR"
 
-# Edit pyproject.toml and workflow files in place; single-version workflow pins
-# that were left alone are written to the file given as $2.
+# Edit pyproject.toml and workflow files in place; remaining Python version
+# mentions for manual review are written to the file given as $2.
 # Exit codes: 0 = files changed, 2 = nothing to change, other = error.
 apply_updates() {
     python3 "$PYTHON_HELPER" "$1" "$MIN_MINOR" "$MAX_MINOR" "$2"
-}
-
-# Print lines still referring to dropped Python versions (for manual review).
-find_leftovers() {
-    local repo_dir="$1"
-    [[ -n "$DROPPED_MINORS" ]] || return 0
-    git -C "$repo_dir" grep -nIE \
-        "(^|[^0-9.])(3\.(${DROPPED_MINORS})|py3(${DROPPED_MINORS}))([^0-9]|$)" \
-        -- '*.toml' '*.cfg' '*.ini' '*.yml' '*.yaml' '*.md' '*.rst' '*.txt' '.python-version' \
-        || true
 }
 
 cleanup_branch() {
@@ -158,9 +142,9 @@ process_repo() {
 
     #3. Create branch and apply the updates
     git -C "$repo_dir" checkout -b "$BRANCH" --quiet
-    local exit_code=0 pins_file="$WORK_DIR/$repo.pins"
-    rm -f "$pins_file"
-    apply_updates "$repo_dir" "$pins_file" || exit_code=$?
+    local exit_code=0 review_file="$WORK_DIR/$repo.review"
+    rm -f "$review_file"
+    apply_updates "$repo_dir" "$review_file" || exit_code=$?
     case $exit_code in
         0) ;;
         2) log "Nothing to update in $repo - skipping PR."
@@ -174,18 +158,12 @@ process_repo() {
     log "Diff preview:"
     git -C "$repo_dir" --no-pager diff
 
-    #4. Anything left behind that mentions a dropped version?
-    local leftovers
-    leftovers="$(find_leftovers "$repo_dir")"
+    #4. Anything left behind that mentions a Python version?
+    local leftovers=""
+    [[ -f "$review_file" ]] && leftovers="$(cat "$review_file")"
     if [[ -n "$leftovers" ]]; then
-        warn "References to dropped Python versions remain in $repo (not changed):"
+        warn "Python version mentions remain in $repo (not changed):"
         echo "$leftovers" >&2
-    fi
-    local pins=""
-    [[ -f "$pins_file" ]] && pins="$(cat "$pins_file")"
-    if [[ -n "$pins" ]]; then
-        warn "Workflows in $repo pin a single Python version outside a test matrix (not changed):"
-        echo "$pins" >&2
     fi
 
     if [[ "$DRY_RUN" == true ]]; then
@@ -215,17 +193,9 @@ This PR was opened by a script. Please check that CI passes on the new Python ve
     if [[ -n "$leftovers" ]]; then
         body+="
 
-**Please review:** these lines still mention a dropped Python version and were not changed automatically:
+**Please review:** these lines still mention a Python version and were not changed automatically:
 \`\`\`
 ${leftovers}
-\`\`\`"
-    fi
-    if [[ -n "$pins" ]]; then
-        body+="
-
-**Please review:** these workflow lines pin a single Python version outside the test matrix and were not changed automatically:
-\`\`\`
-${pins}
 \`\`\`"
     fi
     if [[ -n "$ISSUE" ]]; then
