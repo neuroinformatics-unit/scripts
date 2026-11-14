@@ -1,13 +1,10 @@
 name: Pin actions to SHAs
 
-# Run bash/pin_actions_to_sha.sh across the org's repositories.
-# Authenticates as the neuroinformatics-unit-bot GitHub App, so the PRs are opened
-# by the bot. Start with a dry run and read the job log before opening PRs.
+# Runs bash/pin_actions_to_sha.sh. PRs are opened by the neuroinformatics-unit-bot app.
+# Do a dry run first and read the log.
 #
-# The app must be installed on every target repository with these permissions:
+# The app must be installed on every target repository with:
 #   Contents: write, Pull requests: write, Workflows: write
-# ("Workflows" is required because GitHub rejects pushes that change
-# .github/workflows/ without it.)
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +13,7 @@ on:
         type: boolean
         default: true
       repo:
-        description: "Only this one repository, e.g. movement (leave empty for the script's full list)"
+        description: "Only this one repository, e.g. datashuttle (leave empty for the script's full list)"
         type: string
         default: ""
       reviewer:
@@ -31,7 +28,7 @@ on:
 permissions:
   contents: read
 
-# Never run two rollouts at once
+# One run at a time
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
@@ -53,8 +50,8 @@ jobs:
         env:
           REPO: ${{ inputs.repo }}
         run: |
-          if [[ "$REPO" == *[,[:space:]]* ]]; then
-            echo "::error::'repo' must be a single repository name, got '$REPO'"
+          if [[ -n "$REPO" && ! "$REPO" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error::'repo' must be a single repository name (without the org), got '$REPO'"
             exit 1
           elif [[ -n "$REPO" ]]; then
             echo "repos=$REPO" >> "$GITHUB_OUTPUT"
@@ -68,14 +65,14 @@ jobs:
         with:
           client-id: ${{ vars.NIU_BOT_CLIENT_ID }}
           private-key: ${{ secrets.NIU_BOT_PRIVATE_KEY }}
-          # Scope the token to the target repositories only
+          # Token only for the target repositories
           owner: ${{ github.repository_owner }}
           repositories: ${{ steps.targets.outputs.repos }}
           permission-contents: write
           permission-pull-requests: write
           permission-workflows: write
 
-      - name: Install pinact
+      - name: Install pinact and PyYAML
         run: |
           base="https://github.com/suzuki-shunsuke/pinact/releases/download/v${PINACT_VERSION}"
           curl -sSfL -o pinact.tar.gz "${base}/pinact_linux_amd64.tar.gz"
@@ -84,7 +81,8 @@ jobs:
           sudo mv pinact /usr/local/bin/
           rm pinact.tar.gz
           pinact --version
-          python3 -c "import yaml" 2>/dev/null || pip install pyyaml
+          # pip cannot install into the runner's system Python
+          python3 -c "import yaml" 2>/dev/null || sudo apt-get install -y --no-install-recommends python3-yaml
 
       - name: Configure git as the bot
         env:
@@ -100,7 +98,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          # Inputs are passed through env, never interpolated into the script
+          # Pass inputs through env, not directly into the script
           DRY_RUN: ${{ inputs.dry_run }}
           REPO: ${{ inputs.repo }}
           REVIEWER: ${{ inputs.reviewer }}

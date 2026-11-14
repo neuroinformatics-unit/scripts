@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# Pin third-party GitHub Actions to commit SHAs in each repository and open a PR.
+# Our own actions stay on their major version tag (e.g. @v3). No versions are upgraded.
+#
+# Requires git, pinact, python3 with PyYAML, and gh (not needed for --dry-run).
+#
+# Usage: ./pin_actions_to_sha.sh [--dry-run] [--repo <name>] [--org <org>]
+#                                [--workflows-only] [--reviewer <user1,user2>]
+#                                [--issue <issue URL or org/repo#N>]
+#
+# Exits with 1 if any repository fails.
 set -euo pipefail
 
 ORG="neuroinformatics-unit"
@@ -23,29 +33,39 @@ REPOS=(
 )
 
 usage() {
-    echo "Usage: $0 [--dry-run] [--repo <name>] [--org <org>] [--workflows-only] [--reviewer <users>] [--issue <issue>]"
+    echo "Usage: $0 [--dry-run] [--repo <name>] [--org <org>] [--workflows-only] [--reviewer <users>] [--issue <issue>] [--list-repos]"
 }
-
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --dry-run)        DRY_RUN=true;        shift ;;
-        --repo)           ONLY_REPO="$2";      shift 2 ;;
-        --org)            ORG="$2";            shift 2 ;;
-        --workflows-only) WORKFLOWS_ONLY=true; shift ;;
-        --reviewer)       REVIEWER="$2";       shift 2 ;;
-        --issue)          ISSUE="$2";          shift 2 ;;
-        # Used by the workflow to scope the bot's token to the target repositories
-        --list-repos)     (IFS=,; echo "${REPOS[*]}"); exit 0 ;;
-        -h|--help)        usage; exit 0 ;;
-        *) echo "Unknown argument: $1"; usage; exit 1 ;;
-    esac
-done
 
 log()  { echo "[INFO]  $*"; }
 warn() { echo "[WARN]  $*" >&2; }
 die()  { echo "[ERROR] $*" >&2; exit 1; }
 
-[[ "$ONLY_REPO" == *[,[:space:]]* ]] && die "--repo takes a single repository name, got '$ONLY_REPO'"
+need_value() { [[ $# -ge 2 && -n "$2" ]] || die "$1 requires a value"; }
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run)        DRY_RUN=true;        shift ;;
+        --repo)           need_value "$@"; ONLY_REPO="$2"; shift 2 ;;
+        --org)            need_value "$@"; ORG="$2";       shift 2 ;;
+        --workflows-only) WORKFLOWS_ONLY=true; shift ;;
+        --reviewer)       need_value "$@"; REVIEWER="$2";  shift 2 ;;
+        --issue)          need_value "$@"; ISSUE="$2";     shift 2 ;;
+        # Used by the workflow
+        --list-repos)     (IFS=,; echo "${REPOS[*]}"); exit 0 ;;
+        -h|--help)        usage; exit 0 ;;
+        *) echo "Unknown argument: $1" >&2; usage >&2; exit 1 ;;
+    esac
+done
+
+# Names are used in paths and URLs, so check them
+if [[ ! "$ORG" =~ ^[A-Za-z0-9-]+$ ]]; then
+    die "--org is not a valid GitHub organisation name: '$ORG'"
+fi
+if [[ -n "$ONLY_REPO" ]]; then
+    if [[ ! "$ONLY_REPO" =~ ^[A-Za-z0-9_.-]+$ || "$ONLY_REPO" == "." || "$ONLY_REPO" == ".." ]]; then
+        die "--repo takes a single repository name (without the org), got '$ONLY_REPO'"
+    fi
+fi
 
 command -v git     &>/dev/null || die "git not found in PATH"
 command -v pinact  &>/dev/null || die "pinact not found - see https://github.com/suzuki-shunsuke/pinact#install"
@@ -55,10 +75,16 @@ if [[ "$DRY_RUN" != true ]]; then
     command -v gh &>/dev/null || die "gh not found - install GitHub CLI"
     gh auth status &>/dev/null || die "gh is not authenticated - run 'gh auth login'"
 fi
-if [[ -z "${GITHUB_TOKEN:-}" && -n "${GH_TOKEN:-}" ]]; then
-    export GITHUB_TOKEN="$GH_TOKEN"
+# pinact needs GITHUB_TOKEN to avoid rate limits
+if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+    if [[ -n "${GH_TOKEN:-}" ]]; then
+        export GITHUB_TOKEN="$GH_TOKEN"
+    elif command -v gh &>/dev/null && token="$(gh auth token 2>/dev/null)" && [[ -n "$token" ]]; then
+        export GITHUB_TOKEN="$token"
+    else
+        warn "GITHUB_TOKEN is not set - pinact may hit GitHub API rate limits."
+    fi
 fi
-[[ -n "${GITHUB_TOKEN:-}" ]] || warn "GITHUB_TOKEN is not set - pinact may hit GitHub API rate limits."
 
 BRANCH="pin-actions-to-sha"
 PR_TITLE="Pin GitHub Actions to commit SHAs"
@@ -70,9 +96,15 @@ DEPENDABOT_HELPER="$SCRIPT_DIR/../python/check_dependabot_actions.py"
 
 mkdir -p "$WORK_DIR"
 SUMMARY=()
+FAILED=()
 
-# Own actions stay on their major version tag. Exit code 2 (some references could not
-# be pinned) is not a failure; they are reported afterwards.
+# `set -e` is off inside process_repo, so each step reports failures here
+fail() {
+    warn "$2 - skipping $1."
+    FAILED+=("$1: $2")
+}
+
+# Skips our own actions. Exit code 2 (some refs not pinned) is not a failure.
 run_pinact() {
     local repo_dir="$1"; shift
     local code=0
@@ -87,7 +119,7 @@ extra_files() {
         ':!**/action.yml' ':!**/action.yaml' 2>/dev/null || true
 }
 
-# Every `uses:` reference that is still not pinned as the policy asks
+# List `uses:` references that are still not pinned
 unpinned_refs() {
     local repo_dir="$1" line location target ref owner
     local re='uses:[[:space:]]*["'\'']?([^"'\''`[:space:]#]+)'
@@ -110,7 +142,7 @@ unpinned_refs() {
         if [[ "$(printf '%s' "$owner" | tr '[:upper:]' '[:lower:]')" == \
               "$(printf '%s' "$ORG" | tr '[:upper:]' '[:lower:]')" ]]; then
             [[ "$ref" =~ ^v[0-9]+$ ]] && continue
-            # Own actions are only flagged where they run, not in docs and examples
+            # Flag own actions only in workflow and action files, not docs
             case "${location%%:*}" in
                 .github/workflows/*|action.yml|action.yaml|*/action.yml|*/action.yaml) ;;
                 *) continue ;;
@@ -133,43 +165,61 @@ process_repo() {
     local repo_dir="$WORK_DIR/$repo"
     log "===== $ORG/$repo"
 
-    #1. Fresh clone of the default branch
+    #1. Clone
     rm -rf "$repo_dir"
     if [[ "$DRY_RUN" == true ]]; then
         git clone --quiet --depth=1 "https://github.com/$ORG/$repo.git" "$repo_dir"
     else
         gh repo clone "$ORG/$repo" "$repo_dir" -- --depth=1 --quiet
-    fi || { warn "Clone failed for $repo - skipping."; return 0; }
+    fi || { fail "$repo" "Clone failed"; return 0; }
     local base
-    base="$(git -C "$repo_dir" symbolic-ref --short refs/remotes/origin/HEAD)"
+    if ! base="$(git -C "$repo_dir" symbolic-ref --short refs/remotes/origin/HEAD)"; then
+        fail "$repo" "Could not determine the default branch (empty repository?)"
+        return 0
+    fi
     base="${base#origin/}"
 
     #2. Skip if the branch already exists
-    if git -C "$repo_dir" ls-remote --exit-code --heads origin "$BRANCH" &>/dev/null; then
+    local ls_remote=0
+    git -C "$repo_dir" ls-remote --exit-code --heads origin "$BRANCH" &>/dev/null || ls_remote=$?
+    if [[ $ls_remote -eq 0 ]]; then
         warn "Branch '$BRANCH' already exists on remote - skipping $repo."
+        SUMMARY+=("$repo: skipped, branch '$BRANCH' already exists (open PR, or stale branch to delete?)")
+        return 0
+    elif [[ $ls_remote -ne 2 ]]; then
+        # 2 means the branch does not exist
+        fail "$repo" "Could not check the remote for branch '$BRANCH'"
         return 0
     fi
 
     #3. Create branch and pin
-    git -C "$repo_dir" checkout -b "$BRANCH" --quiet
+    if ! git -C "$repo_dir" checkout -b "$BRANCH" --quiet; then
+        fail "$repo" "Could not create branch '$BRANCH'"
+        return 0
+    fi
     if ! run_pinact "$repo_dir"; then
-        warn "pinact failed (GitHub API error?) - skipping $repo."
+        fail "$repo" "pinact failed (GitHub API error?)"
         cleanup_branch "$repo_dir" "$base"
         return 0
     fi
     if [[ "$WORKFLOWS_ONLY" != true ]]; then
-        local extras=()
+        local extras=() f
         while IFS= read -r f; do extras+=("$f"); done < <(extra_files "$repo_dir")
         if [[ ${#extras[@]} -gt 0 ]] && ! run_pinact "$repo_dir" "${extras[@]}"; then
-            warn "pinact failed on docs/example files - skipping $repo."
+            fail "$repo" "pinact failed on docs/example files"
             cleanup_branch "$repo_dir" "$base"
             return 0
         fi
     fi
 
+    #4. Collect notes for the reviewer
     local leftovers dependabot review=""
     leftovers="$(unpinned_refs "$repo_dir")"
-    dependabot="$(python3 "$DEPENDABOT_HELPER" "$repo_dir")"
+    if ! dependabot="$(python3 "$DEPENDABOT_HELPER" "$repo_dir")"; then
+        fail "$repo" "Dependabot coverage check failed"
+        cleanup_branch "$repo_dir" "$base"
+        return 0
+    fi
     if [[ -n "$leftovers" ]]; then
         warn "References not pinned automatically in $repo:"
         echo "$leftovers" >&2
@@ -210,18 +260,18 @@ ${dependabot}
     fi
 
     #5. Commit and push
-    git -C "$repo_dir" add -u
-    if git -C "$repo_dir" diff --cached --quiet; then
-        warn "Nothing staged - skipping $repo."
+    if ! git -C "$repo_dir" add -u; then
+        fail "$repo" "Staging failed"
+        cleanup_branch "$repo_dir" "$base"
         return 0
     fi
     if ! git -C "$repo_dir" commit --quiet -m "$COMMIT_MSG"; then
-        warn "Commit failed for $repo - skipping."
+        fail "$repo" "Commit failed (is git user.name / user.email set?)"
         cleanup_branch "$repo_dir" "$base"
         return 0
     fi
     if ! git -C "$repo_dir" push --quiet origin "$BRANCH"; then
-        warn "Push failed for $repo (does the token have write access?) - skipping."
+        fail "$repo" "Push failed (does the token have write access, including workflows?)"
         cleanup_branch "$repo_dir" "$base"
         return 0
     fi
@@ -254,22 +304,26 @@ Tracked in ${ISSUE}"
     else
         warn "PR creation failed for $repo, but branch '$BRANCH' is already pushed. Open the PR by hand, or delete the branch and rerun:"
         warn "    gh api -X DELETE repos/$ORG/$repo/git/refs/heads/$BRANCH"
-        SUMMARY+=("$repo: branch pushed but PR creation failed")
+        FAILED+=("$repo: branch pushed but PR creation failed")
     fi
 }
 
 log "Pinning actions to SHAs in $ORG (branch: $BRANCH, dry run: $DRY_RUN)"
 if [[ -n "$ONLY_REPO" ]]; then
-    process_repo "$ONLY_REPO" || warn "Unhandled error for $ONLY_REPO."
-else
-    for repo in "${REPOS[@]}"; do
-        process_repo "$repo" || warn "Unhandled error for $repo - continuing."
-        echo
-    done
+    REPOS=("$ONLY_REPO")
 fi
+for repo in "${REPOS[@]}"; do
+    process_repo "$repo" || fail "$repo" "Unhandled error"
+    echo
+done
 
 if [[ ${#SUMMARY[@]} -gt 0 ]]; then
     log "Needs attention:"
     printf '        %s\n' "${SUMMARY[@]}"
 fi
 log "Completed: $WORK_DIR"
+if [[ ${#FAILED[@]} -gt 0 ]]; then
+    warn "Failed:"
+    printf '        %s\n' "${FAILED[@]}" >&2
+    exit 1
+fi
