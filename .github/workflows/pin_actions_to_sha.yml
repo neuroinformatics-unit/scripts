@@ -1,0 +1,112 @@
+name: Pin actions to SHAs
+
+# Runs bash/pin_actions_to_sha.sh. PRs are opened by the neuroinformatics-unit-bot app.
+# Do a dry run first and read the log.
+#
+# The app must be installed on every target repository with:
+#   Contents: write, Pull requests: write, Workflows: write
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: print the diffs without pushing or opening PRs"
+        type: boolean
+        default: true
+      repo:
+        description: "Only this one repository, e.g. datashuttle (leave empty for the script's full list)"
+        type: string
+        default: ""
+      reviewer:
+        description: "Comma-separated GitHub users to request reviews from (optional)"
+        type: string
+        default: ""
+      issue:
+        description: "Tracking issue, e.g. neuroinformatics-unit/scripts#12 (optional)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+# One run at a time
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  PINACT_VERSION: "5.0.0"
+  PINACT_SHA256: "d005bbb85da80dacdc07816f24a5da723a9f6d1e9f3d3e7e73df33f9caa1358f"
+
+jobs:
+  pin-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: List target repositories
+        id: targets
+        env:
+          REPO: ${{ inputs.repo }}
+        run: |
+          if [[ -n "$REPO" && ! "$REPO" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error::'repo' must be a single repository name (without the org), got '$REPO'"
+            exit 1
+          elif [[ -n "$REPO" ]]; then
+            echo "repos=$REPO" >> "$GITHUB_OUTPUT"
+          else
+            echo "repos=$(./bash/pin_actions_to_sha.sh --list-repos)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.NIU_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.NIU_BOT_PRIVATE_KEY }}
+          # Token only for the target repositories
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.targets.outputs.repos }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+
+      - name: Install pinact and PyYAML
+        run: |
+          base="https://github.com/suzuki-shunsuke/pinact/releases/download/v${PINACT_VERSION}"
+          curl -sSfL -o pinact.tar.gz "${base}/pinact_linux_amd64.tar.gz"
+          echo "${PINACT_SHA256}  pinact.tar.gz" | sha256sum -c -
+          tar -xzf pinact.tar.gz pinact
+          sudo mv pinact /usr/local/bin/
+          rm pinact.tar.gz
+          pinact --version
+          # pip cannot install into the runner's system Python
+          python3 -c "import yaml" 2>/dev/null || sudo apt-get install -y --no-install-recommends python3-yaml
+
+      - name: Configure git as the bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          user_id="$(gh api "/users/${APP_SLUG}[bot]" --jq .id)"
+          git config --global user.name "${APP_SLUG}[bot]"
+          git config --global user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          gh auth setup-git
+
+      - name: Pin actions
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Pass inputs through env, not directly into the script
+          DRY_RUN: ${{ inputs.dry_run }}
+          REPO: ${{ inputs.repo }}
+          REVIEWER: ${{ inputs.reviewer }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          args=()
+          [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
+          [[ -n "$REPO" ]] && args+=(--repo "$REPO")
+          [[ -n "$REVIEWER" ]] && args+=(--reviewer "$REVIEWER")
+          [[ -n "$ISSUE" ]] && args+=(--issue "$ISSUE")
+          ./bash/pin_actions_to_sha.sh "${args[@]}"
