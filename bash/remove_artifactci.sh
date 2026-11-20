@@ -163,18 +163,12 @@ process_repo() {
     done
     rm -f "$tmp"
 
-    local leftovers review=""
+    local leftovers doc_items=""
     leftovers="$(leftover_mentions "$repo_dir")"
     if [[ -n "$leftovers" ]]; then
         warn "Mentions of artifact.ci left in $repo:"
         echo "$leftovers" >&2
-        review="
-
-### Please review
-**Still mentioning artifact.ci** (not changed automatically; edit or remove by hand):
-\`\`\`
-${leftovers}
-\`\`\`"
+        doc_items="$(awk -F: '{ n[$1]++; l[$1] = l[$1] (l[$1] ? ", " : "") $2 } END { for (f in l) printf "- [ ] Update `%s` (line%s %s), which still mentions artifact.ci\n", f, (n[f] > 1 ? "s" : ""), l[f] }' <<<"$leftovers" | sort)"
     fi
 
     if git -C "$repo_dir" diff --quiet; then
@@ -211,26 +205,38 @@ ${leftovers}
 
     # Open the PR
     local body
-    body="Remove the artifact.ci docs preview.
+    body="Remove the optional [artifact.ci](https://github.com/mmkal/artifact.ci) docs preview from our \`build_sphinx_docs\` action and its callers.
 
-\`build_sphinx_docs\` could upload the built docs with [artifact.ci](https://github.com/mmkal/artifact.ci) instead of \`actions/upload-artifact\` (\`use-artifactci: lazy\`) to get a preview link. artifact.ci has no tagged releases, so it is the one third-party action that cannot be pinned to a version like the others (see ${ORG}/actions#192). The docs are still uploaded with \`actions/upload-artifact\` as the \`docs-build\` artifact, so the deploy job is unaffected."
+We ran out of artifact.ci's free tier, so the preview links no longer work. The action is also referenced at \`@main\` because it has no releases, which makes it the only third-party action we cannot pin to a released version (see ${ORG}/actions#192). The built docs are still uploaded with \`actions/upload-artifact\` as the \`docs-build\` artifact, so deployment is unaffected."
     if [[ "$repo" == "actions" ]]; then
         body+="
 
-- Removes the \`use-artifactci\` input, the artifact.ci upload step and the preview URL summary step from \`build_sphinx_docs\`.
-- Callers that still pass \`use-artifactci\` only get an \"Unexpected input(s)\" warning, so this can be merged before or after their PRs. Please publish a release afterwards so the \`@v3\` tag moves."
+- Removes the \`use-artifactci\` input, the artifact.ci upload step and the preview URL step from \`build_sphinx_docs\`, and the related notes from the READMEs.
+- Repositories that still pass \`use-artifactci\` only get an \"Unexpected input(s)\" warning, so this PR and the matching PRs in other repositories can be merged in any order.
+- After merging, please publish a release so that the \`@v3\` tag moves."
     else
         body+="
 
-- Removes the \`use-artifactci\` input from the \`build_sphinx_docs\` call. This is safe to merge before or after the matching change in ${ORG}/actions."
+- Removes the \`use-artifactci\` input from the \`build_sphinx_docs\` call.
+- A matching PR removes the input from ${ORG}/actions itself. The two can be merged in any order: whichever comes first, the docs are uploaded with \`actions/upload-artifact\` from then on."
     fi
     body+="
 
-This PR was opened by a script. Please check that CI passes before merging.${review}"
+This PR was opened by a script from neuroinformatics-unit/scripts#24, written by @Aniketsy."
     if [[ -n "$ISSUE" ]]; then
         body+="
 
 Tracked in ${ISSUE}"
+    fi
+    body+="
+
+### Before merging
+- [ ] Check that CI passes"
+    if [[ -n "$doc_items" ]]; then
+        body+="
+${doc_items}
+
+The remaining mentions are probably instructions for previewing the docs. These could point to the \`docs-build\` artifact on the workflow run's summary page instead."
     fi
 
     local pr_args=(--repo "$ORG/$repo" --head "$BRANCH" --base "$base" --title "$PR_TITLE" --body "$body")
