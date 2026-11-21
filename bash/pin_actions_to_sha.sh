@@ -19,7 +19,6 @@
 set -euo pipefail
 
 ORG="neuroinformatics-unit"
-# Our own actions, also used by other organisations
 SHARED_ACTIONS="neuroinformatics-unit/actions"
 REVIEWER=""
 ISSUE=""
@@ -120,7 +119,7 @@ if [[ -z "${GITHUB_TOKEN:-}" ]]; then
     fi
 fi
 
-# Latest major version of our actions, e.g. v3.0.2 -> v3
+# Latest version of our actions
 latest_release="$(gh api "repos/$SHARED_ACTIONS/releases/latest" --jq .tag_name)" \
     || die "Could not look up the latest release of $SHARED_ACTIONS"
 SHARED_MAJOR="${latest_release%%.*}"
@@ -148,7 +147,6 @@ fail() {
 # Skip our own actions, and pin @release/v1 branches to the latest release
 PINACT_ARGS=(--log-level warn --exclude "(?i)^${SHARED_ACTIONS}/" --branch-to-tag '^release/v1$')
 
-# Exit code 2 (some refs not pinned) is not a failure.
 run_pinact() {
     local repo_dir="$1"; shift
     local code=0
@@ -156,7 +154,7 @@ run_pinact() {
     [[ $code -eq 0 || $code -eq 2 ]] || return "$code"
 }
 
-# List the references that pinact could not pin
+# References that could not be pinned by pinact
 unpinned_refs() {
     local repo_dir="$1"; shift
     local code=0 out
@@ -165,7 +163,6 @@ unpinned_refs() {
     grep -v "failed to handle a line" <<< "$out" || true
 }
 
-# Docs, examples and templates that mention actions
 extra_files() {
     git -C "$1" grep -lE 'uses:[[:space:]]*["'\'']?[A-Za-z0-9_.-]+/[^[:space:]]+@' \
         -- '*.yml' '*.yaml' '*.md' \
@@ -250,7 +247,7 @@ process_repo() {
         return 0
     fi
 
-    #3. Create branch, move our own actions to the latest major, pin the rest
+    #3. Create branch and pin
     if ! git -C "$repo_dir" checkout -b "$BRANCH" --quiet; then
         fail "$repo" "Could not create branch '$BRANCH'"
         return 0
@@ -282,10 +279,10 @@ process_repo() {
         return 0
     fi
 
-    [[ "$(git -C "$repo_dir" diff)" != "$diff_after_bump" ]] && pinned=true
-    if git -C "$repo_dir" diff | grep -qE '^-[^-].*uses:.*@release/v1'; then
-        branch_pinned=true
-    fi
+    local diff_after_pin
+    diff_after_pin="$(git -C "$repo_dir" diff)"
+    [[ "$diff_after_pin" != "$diff_after_bump" ]] && pinned=true
+    grep -qE '^-.*uses:.*@release/v1' <<< "$diff_after_pin" && branch_pinned=true
 
     #4. Collect notes for the reviewer
     local leftovers more dependabot notes=""
@@ -311,7 +308,6 @@ process_repo() {
     fi
     if [[ "$had_dependabot" != true && -e "$repo_dir/.github/dependabot.yml" ]]; then
         dependabot_added=true
-        # So that the new file shows up in the diff
         if ! git -C "$repo_dir" add --intent-to-add -- .github/dependabot.yml; then
             fail "$repo" "Could not add the new Dependabot config"
             cleanup_branch "$repo_dir" "$base"

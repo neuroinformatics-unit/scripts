@@ -16,7 +16,7 @@ import yaml
 SHARED = "neuroinformatics-unit/actions"
 SHARED_RE = re.compile(
     r"(?P<head>uses:\s*[\"']?" + re.escape(SHARED) + r"/(?P<path>[\w./-]+)@)"
-    # The ref ends on a word character, to keep punctuation after it in docs
+    # The ref ends at a letter or digit, so "@v2." keeps its full stop
     r"(?P<ref>[\w./-]*\w)(?P<quote>[\"']?)(?P<comment>[ \t]*#[^\r\n]*)?",
     re.IGNORECASE,
 )
@@ -92,7 +92,7 @@ def exists_in_shared(path: str, ref: str) -> bool:
         )
         if result.returncode == 0:
             return True
-        if "404" not in result.stderr:
+        if "(HTTP 404)" not in result.stderr:
             sys.exit(f"gh api failed for {candidate}@{ref}: {result.stderr.strip()}")
     return False
 
